@@ -18,7 +18,7 @@ class String
 end
 
 class Mp3Tag
-  VALID_ACTIONS = [ 'info', 'conv', 'cover' ]
+  VALID_ACTIONS = [ 'info', 'conv', 'cover', 'fname' ]
 
   RESERVED_IDS = [ :TIT2, :TPE1, :TALB, :TYER, :TRCK, :APIC ]
   ENC_INFO = { 0 => "ASCII", 1 => "UNICODE" }
@@ -31,6 +31,7 @@ class Mp3Tag
     @big5_to_ucs2 = Iconv.new('UCS-2', 'BIG5')
 
     @from_ucs2 = Iconv.new('UTF-8', 'UCS-2')
+    @utf8_to_ucs2 = Iconv.new('UCS-2', 'UTF-8')
 
     @reserved_frames = {}
   end
@@ -63,6 +64,16 @@ class Mp3Tag
     end
   end
 
+  def fname(path, pattern)
+    if prepare_songs(path)
+      @songs.each do |song|
+        display_song_filename song
+        update_tag_from_filename song, pattern
+      end
+    end
+
+  end
+
   private
   
   # Prepare song files
@@ -79,7 +90,7 @@ class Mp3Tag
 
     elsif File.directory?(path) 
       # dir
-      @songs = Dir.glob(File.join(path, "*.mp3"))
+      @songs = Dir.glob(File.join(path, "*.mp3"), File::FNM_CASEFOLD)
       puts File.join(path, "*.mp3") if $DEBUG
       p @songs if $DEBUG
 
@@ -113,6 +124,7 @@ class Mp3Tag
     case from_encoding
       when "GBK" then @gbk_to_ucs2.iconv(text)
       when "BIG5" then @big5_to_ucs2.iconv(text)
+      when "UTF-8" then @utf8_to_ucs2.iconv(text)
     end 
   rescue
     nil
@@ -211,6 +223,28 @@ class Mp3Tag
     puts
   end
 
+  def update_tag_from_filename(song, pattern)
+    filename = File.basename(song, ".mp3")
+    
+    tag = ID3Lib::Tag.new(song, ID3Lib::V_BOTH)
+
+    if filename =~ /(^\d+)[.|\s]?\s*(.*$)/
+      #remove all tags
+      tag.strip!
+      
+      tag << { :id => :TRCK, :text => convert_text_to_ucs2($1.chomp, "UTF-8"), :textenc => 1 }
+      tag << { :id => :TIT2, :text => convert_text_to_ucs2($2.chomp, "UTF-8"), :textenc => 1 }
+
+      tag.update!(ID3Lib::V2)
+      
+      puts "Done!"
+    else
+      puts "Failed to parse..."
+    end
+    puts
+
+  end
+
   # Validate action from command line argument
   def self.valid_action?(action)
     if VALID_ACTIONS.include? action.downcase
@@ -236,7 +270,7 @@ if __FILE__ == $0
       else
         ascii_encoding = "GBK"
       end
-      
+
       puts ascii_encoding if $DEBUG
       puts action if $DEBUG
 
@@ -244,6 +278,7 @@ if __FILE__ == $0
         when :info  then mp3Tag.info(ARGV[0], ascii_encoding)
         when :conv  then mp3Tag.conv(ARGV[0], ascii_encoding)
         when :cover then mp3Tag.cover(ARGV[0], ARGV[1])
+        when :fname then mp3Tag.fname(ARGV[0], '')
       end
     
     #rescue => e
