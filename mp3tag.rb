@@ -76,6 +76,11 @@ class Mp3Tag
 
   private
   
+  # escape for Dir.glob to make it work
+  def escape_filename(f)
+    f.gsub(/([\[\]])/, '\\\\\1')
+  end
+
   # Prepare song files
   # when it's a single file, return it directly
   # when it's a directory, return all the song files inside it
@@ -90,7 +95,7 @@ class Mp3Tag
 
     elsif File.directory?(path) 
       # dir
-      @songs = Dir.glob(File.join(path, "*.mp3"), File::FNM_CASEFOLD)
+      @songs = Dir.glob(File.join(escape_filename(path), "*.mp3"), File::FNM_CASEFOLD)
       puts File.join(path, "*.mp3") if $DEBUG
       p @songs if $DEBUG
 

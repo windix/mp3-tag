@@ -4,13 +4,18 @@ require 'cgi'
 require 'rexml/document'
 require 'sinatra'
 require 'erb'
+require 'stringio'
 
 require 'mp3tag'
 
-get '/dir/*' do |f|
+get '/' do
+  redirect '/browse/'
+end
+
+get '/browse/*' do |f|
   f = ENV['HOME'] if f.empty?
   
-  @dir = File.join(escape_filename(f),  "*")
+  @dir = File.join("/", escape_filename(f),  "*")
   @files = Dir.glob(@dir).sort
   
   send_header
@@ -18,25 +23,46 @@ get '/dir/*' do |f|
 end
 
 get '/info/*' do |f|
-  mp3tag = Mp3Tag.new 
-  
-  @dir = escape_filename(f)
-  
-  mp3tag.info(@dir, "GBK")
+  @path = File.join("/", f)
+
+  #@info = ""
+  buffer = StringIO.new
+  old_stdout = $stdout
+  $stdout = buffer
+
+  if File.directory?(@path)
+    dir = File.join(escape_filename(@path), "*.mp3")
+    @files = Dir.glob(dir, File::FNM_CASEFOLD).sort
+
+    #@files.each { |file| @info << func(file) }
+    @files.each { |file| func(file) }
+  else
+    #@info << func(@path)
+    func(@path)
+  end
+
+  @info = buffer.string
+  $stdout = old_stdout
 
   send_header
   erb :info
 end
-
 
 def send_header
   content_type 'text/html', :charset => 'utf-8'
 end
 
 def escape_filename(f)
-  #File.join("/", f.gsub(/([()\[\]])/, '\\\\\1'))
-  File.join("/", f.gsub(/([()\[\]])/, '\\\\\1'))
+  f.gsub(/([\[\]])/, '\\\\\1')
 end
+
+def func(file)
+  mp3tag = Mp3Tag.new
+  mp3tag.info(file, "GBK")
+
+  #puts "#{file} #{File.ctime(file)}\n"
+end
+
 
 __END__
 
@@ -46,7 +72,7 @@ __END__
 
 <% @files.each do |f| %>
   <% if File.directory?(f) %>
-    <a href="<%= "/info" + f %>">[+]</a> <a href="<%= "/dir" + f %>"><%= f %></a><br />
+    <a href="<%= "/info" + f %>">[+]</a> <a href="<%= "/browse" + f %>"><%= f %></a><br />
   <% else %>
     <a href="<%= "/info" + f %>">[+]</a> <%= f %><br />
   <% end %>    
@@ -56,5 +82,6 @@ __END__
 @@info
 
 <h1>Mp3 Info</h1>
-<h2><%= @dir %></h2>
+<h2><%= @path %></h2>
 
+<pre><%= @info %></pre>
