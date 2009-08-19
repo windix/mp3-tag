@@ -5,6 +5,7 @@ require 'id3lib'
 require 'iconv'
 require 'open-uri'
 require 'rchardet'
+require 'rtranslate'
 
 module Mp3Tag
   RESERVED_IDS = [ :TIT2, :TPE1, :TALB, :TYER, :TRCK, :APIC ]
@@ -65,13 +66,34 @@ module Mp3Tag
       RUBY_PLATFORM =~ /mswin32/
     end
     
+    def self.to_simp(s)
+      # detect unicode chars
+      unicode_found = false
+      s.split(//u).each do |c|
+        if c.size > 1
+          unicode_found = true
+          break
+        end
+      end
+
+      return s unless unicode_found
+
+      # cache
+      @@translate_cache ||= {}
+      return @@translate_cache[s] if (@@translate_cache.has_key?(s))
+
+      result = Translate.t(s, "CHINESE_TRADITIONAL", "CHINESE_SIMPLIFIED")
+      @@translate_cache[s] = result
+      return result
+    end
+  
   end # of class Utils
 
   class Tag
     attr_reader :id, :encoding
 
     def initialize(id, text, encoding)
-      @id, @text, @encoding = id, text, encoding
+      @id, @text, @encoding = id, text.strip, encoding
       @tag_name = nil
     end
 
@@ -91,6 +113,7 @@ module Mp3Tag
                         end
 
         text = Utils.iconv(@text, from_encoding, to_encoding)
+        text = Utils.to_simp(text)
       else
         ""
       end
