@@ -108,12 +108,14 @@ module Mp3Tag
     def text(default_encoding_for_ASCII = "GBK", to_encoding = Mp3Tag::output_encoding)
       if (@text)
         from_encoding = case @encoding 
-                        when "ASCII" then  default_encoding_for_ASCII
+                        when "ASCII" then default_encoding_for_ASCII
                         when "UNICODE" then "UCS-2"
                         end
 
-        text = Utils.iconv(@text, from_encoding, to_encoding)
-        text = Utils.to_simp(text)
+        text = Utils.iconv(@text, from_encoding, "UTF-8")
+        text = Utils.iconv(Utils.to_simp(text), "UTF-8", to_encoding)
+
+        text
       else
         ""
       end
