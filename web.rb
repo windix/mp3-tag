@@ -15,15 +15,15 @@ end
 get '/browse/*' do |f|
   f = ENV['HOME'] if f.empty?
   
-  @dir = File.join("/", escape_filename(f),  "*")
+  @dir = File.join(Mp3Tag::Utils.escape_filename(f),  "*")
   @files = Dir.glob(@dir).sort
-  
+
   send_header
   erb :index
 end
 
 get '/info/*' do |f|
-  @path = File.join("/", f)
+  @path = f
 
   #@info = ""
   buffer = StringIO.new
@@ -31,7 +31,7 @@ get '/info/*' do |f|
   $stdout = buffer
 
   if File.directory?(@path)
-    dir = File.join(escape_filename(@path), "*.mp3")
+    dir = File.join(Mp3Tag::Utils.escape_filename(@path), "*.mp3")
     @files = Dir.glob(dir, File::FNM_CASEFOLD).sort
 
     #@files.each { |file| @info << func(file) }
@@ -49,20 +49,14 @@ get '/info/*' do |f|
 end
 
 def send_header
-  content_type 'text/html', :charset => 'utf-8'
-end
-
-def escape_filename(f)
-  f.gsub(/([\[\]])/, '\\\\\1')
+  charset = RUBY_PLATFORM =~ /mswin32/ ? 'gb2312' : 'utf-8'
+  content_type 'text/html', :charset => charset
 end
 
 def func(file)
-  mp3tag = Mp3Tag.new
-  mp3tag.info(file, "GBK")
-
-  #puts "#{file} #{File.ctime(file)}\n"
+  mp3tag = Mp3Tag::WEB.new("GBK")
+  mp3tag.info(file)
 end
-
 
 __END__
 
@@ -72,9 +66,9 @@ __END__
 
 <% @files.each do |f| %>
   <% if File.directory?(f) %>
-    <a href="<%= "/info" + f %>">[+]</a> <a href="<%= "/browse" + f %>"><%= f %></a><br />
+    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <a href="<%= "/browse/" + CGI.escape(f) %>"><%= f %></a><br />
   <% else %>
-    <a href="<%= "/info" + f %>">[+]</a> <%= f %><br />
+    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <%= f %><br />
   <% end %>    
 <% end %>
 
