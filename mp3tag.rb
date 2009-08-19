@@ -10,9 +10,33 @@ module Mp3Tag
   RESERVED_IDS = [ :TIT2, :TPE1, :TALB, :TYER, :TRCK, :APIC ]
   ENC_INFO = { 0 => "ASCII", 1 => "UNICODE" }
 
+  def self.set_encoding(output_encoding)
+    # under Chinese Win32 platform, file and dir names returns in GBK    
+    if Utils.is_win32?
+      @@input_encoding = "GBK"
+    else
+      @@input_encoding = "UTF-8"
+    end
+    
+    # depends on environment: 
+    # for CLI, output_encoding is the same as input_encoding based on platform
+    # for Web, output_encoding is always UTF-8
+    # this has been set during initialize for each sub-class
+    
+    @@output_encoding = output_encoding
+  end
+  
+  def self.input_encoding
+    @@input_encoding
+  end
+  
+  def self.output_encoding
+    @@output_encoding
+  end
+
   class Utils
     # Conv between encodings
-    def self.iconv(from, to, string)
+    def self.iconv(string, from = Mp3Tag::input_encoding, to = Mp3Tag::output_encoding)
       return string if from == to
       Iconv.iconv("#{to}//IGNORE", from, string).join
     rescue => ex
@@ -36,6 +60,11 @@ module Mp3Tag
       f.gsub(/([\[\]])/, '\\\\\1')
     end
     
+    # detect platform
+    def self.is_win32?
+      RUBY_PLATFORM =~ /mswin32/
+    end
+    
   end # of class Utils
 
   class Tag
@@ -50,18 +79,18 @@ module Mp3Tag
       RESERVED_IDS.include? @id     
     end
 
-    def to_s(default_encoding_for_ASCII = "GBK", to_encoding = "UTF-8")
-      "#{tag_name}\n#{text(default_encoding_for_ASCII, to_encoding)}\n"
+    def to_s(default_encoding_for_ASCII = "GBK")
+      "#{tag_name}\n#{text(default_encoding_for_ASCII)}\n"
     end
 
-    def text(default_encoding_for_ASCII = "GBK", to_encoding = "UTF-8")
+    def text(default_encoding_for_ASCII = "GBK")
       if (@text)
         from_encoding = case @encoding 
                         when "ASCII" then  default_encoding_for_ASCII
                         when "UNICODE" then "UCS-2"
                         end
 
-        text = Utils.iconv(from_encoding, to_encoding, @text)
+        text = Utils.iconv(@text, from_encoding)
       else
         ""
       end
@@ -147,10 +176,10 @@ module Mp3Tag
     end
 
     def song_name
-      File.basename(@path)
+      Utils.iconv(File.basename(@path))
     end
 
-    def to_s(default_encoding_for_ASCII = "GBK", to_encoding = "UTF-8")
+    def to_s(default_encoding_for_ASCII = "GBK")
       output = "Song name: '#{song_name}'\n"
       output << "Need convert: #{ require_convert? ? "YES" : "NO" }\n";
       output << "\n"
@@ -159,7 +188,7 @@ module Mp3Tag
 
       @tags.each do |tag|
         output << tag.tag_name.rjust(max_length) << " : " << "[#{tag.encoding}] " <<
-        tag.text(default_encoding_for_ASCII, to_encoding) << "\n"
+        tag.text(default_encoding_for_ASCII) << "\n"
       end
 
       output << "\n"
@@ -239,41 +268,22 @@ module Mp3Tag
     
   end # of class Song
 
-  class CLI
-    VALID_ACTIONS = [ 'info', 'conv', 'cover' ]
-
-    def initialize()
-      if ARGV.length == 0 || !(action = valid_action?(ARGV.shift))
-        puts cli_usage
-      else
-        if ARGV[0] == "-big5"
-          @ascii_encoding = "BIG5" 
-          ARGV.shift
-        else
-          @ascii_encoding = "GBK"
-        end
-
-        send(action)
-      end
+  class Base
+    def initialize(default_ascii_encoding = "GBK")
+      @ascii_encoding = default_ascii_encoding
     end
-
-    ## ACTIONS
-
+    
     # Display mp3 file info
-    def info
-      paths = ARGV
-
+    def info(paths)
       paths.each do |path|
         get_songs(path).each do |song|
           puts song.to_s(@ascii_encoding)
         end
       end
     end
-
+    
     # Convert mp3 file's id3 tag info to unicode format
-    def conv
-      paths = ARGV
-
+    def conv(paths)
       paths.each do |path|
         get_songs(path).each do |song|
           print "Convert '#{song.song_name}'... "
@@ -287,12 +297,9 @@ module Mp3Tag
         end
       end
     end
-
+    
     # Attach cover image
-    def cover
-      cover_path = ARGV.pop
-      paths = ARGV
-
+    def cover(paths, cover_path)
       paths.each do |path|
         get_songs(path).each do |song|
           print "Attach cover image to '#{song.song_name}'... "
@@ -307,21 +314,64 @@ module Mp3Tag
         end
       end
     end
-
+    
     # Update tag based on filename
     def fname
     end
-
+    
     private
 
     def get_songs(path)
       songs = Song.get_songs(path)
-      puts "Found #{songs.size} #{songs.size == 1 ? 'song' : 'songs'} from path '#{path}'"
+      puts "Found #{songs.size} #{songs.size == 1 ? 'song' : 'songs'} from path '#{Utils.iconv(path)}'"
       puts
 
       songs
     end
+  end
 
+  class CLI < Base
+    VALID_ACTIONS = [ 'info', 'conv', 'cover' ]
+
+    def initialize()
+      Mp3Tag::set_encoding(Utils.is_win32? ? "GBK" : "UTF-8")
+      
+      if ARGV.length == 0 || !(action = valid_action?(ARGV.shift))
+        puts cli_usage
+      else
+        if ARGV[0] == "-big5"
+          ascii_encoding = "BIG5" 
+          ARGV.shift
+        else
+          ascii_encoding = "GBK"
+        end
+        
+        super(ascii_encoding)
+
+        send(action)
+      end
+    end
+
+    ## ACTIONS
+
+    def info
+      super(ARGV)
+    end
+
+    def conv
+      super(ARGV)
+    end
+
+    # Attach cover image
+    def cover
+      cover_path = ARGV.pop
+      paths = ARGV
+      
+      super(paths, cover_path)
+    end
+
+    private
+    
     def cli_usage
       return <<-USAGE
 Convert Chinese Mp3 ID3tag to ID3tag V2 / Unicode
@@ -348,21 +398,13 @@ Examples:
     
   end # of class CLI
 
-  class WEB < CLI
-    def initialize(ascii_encoding)
-      @ascii_encoding = ascii_encoding
-    end
-    
-    # Display mp3 file info
-    def info(paths)
-      paths.each do |path|
-        get_songs(path).each do |song|
-          puts song.to_s(@ascii_encoding)
-        end
-      end
+  class Web < Base
+    def initialize(default_ascii_encoding = "GBK")
+      Mp3Tag::set_encoding("UTF-8")
+      super(default_ascii_encoding)
     end
   end
-
+  
 end
 
 Mp3Tag::CLI.new if __FILE__ == $0

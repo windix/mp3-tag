@@ -49,12 +49,20 @@ get '/info/*' do |f|
 end
 
 def send_header
-  charset = RUBY_PLATFORM =~ /mswin32/ ? 'gb2312' : 'utf-8'
-  content_type 'text/html', :charset => charset
+  #charset = RUBY_PLATFORM =~ /mswin32/ ? 'gb2312' : 'utf-8'
+  content_type 'text/html', :charset => "utf-8"
+end
+
+def iconv(s)
+  if Mp3Tag::Utils.is_win32?
+    Mp3Tag::Utils.iconv(s, "GBK", "UTF-8")
+  else
+    s
+  end
 end
 
 def func(file)
-  mp3tag = Mp3Tag::WEB.new("GBK")
+  mp3tag = Mp3Tag::Web.new("GBK")
   mp3tag.info(file)
 end
 
@@ -66,9 +74,9 @@ __END__
 
 <% @files.each do |f| %>
   <% if File.directory?(f) %>
-    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <a href="<%= "/browse/" + CGI.escape(f) %>"><%= f %></a><br />
+    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <a href="<%= "/browse/" + CGI.escape(f) %>"><%= iconv(f) %></a><br />
   <% else %>
-    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <%= f %><br />
+    <a href="<%= "/info/" + CGI.escape(f) %>">[+]</a> <%= iconv(f) %><br />
   <% end %>    
 <% end %>
 
@@ -76,6 +84,6 @@ __END__
 @@info
 
 <h1>Mp3 Info</h1>
-<h2><%= @path %></h2>
+<h2><%= iconv(@path) %></h2>
 
 <pre><%= @info %></pre>
