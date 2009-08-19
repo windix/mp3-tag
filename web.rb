@@ -40,6 +40,19 @@ get '/conv/*' do |f|
   erb :info
 end
 
+get '/cover_image/*' do |f|
+  @path = f
+  
+  if File.file?(@path) && File.extname(@path).downcase == ".mp3"
+    if (songs = Mp3Tag::Song.get_songs(@path)) && songs.length > 0
+      if (image = songs.first.cover_image)
+        content_type 'image/jpeg'
+        return image
+      end
+    end
+  end
+end
+
 def send_header
   content_type 'text/html', :charset => "utf-8"
 end
@@ -91,7 +104,8 @@ __END__
 <div>
 <a href="<%= get_url(:browse, @up_level_dir) %>">[back]</a> | 
 <a href="<%= get_url(:info, @path) %>">[info]</a> | 
-<a href="<%= get_url(:conv, @path) %>">[conv]</a>
+<a href="<%= get_url(:conv, @path) %>">[conv]</a> |
+<a href="<%= get_url(:cover_image, @path) %>">[cover]</a>
 </div>
 
 <pre><%= @info %></pre>

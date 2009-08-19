@@ -120,6 +120,8 @@ module Mp3Tag
   end # of class Tag
 
   class CoverTag < Tag
+    attr_reader :data
+    
     def initialize(id, data)
       @id, @data, @text, @encoding = id, data, nil, "ASCII"
       @tag_name = nil
@@ -135,6 +137,7 @@ module Mp3Tag
         :data        => @data
       }
     end
+    
   end # of class CoverTag
 
   class Song
@@ -193,11 +196,16 @@ module Mp3Tag
 
       output << "\n"
     end
+    
+    def cover_image
+      cover_tags = @tags.select { |tag| tag.is_cover? }
+      cover_tags.first.data if (cover_tags.length > 0)
+    end
 
     def attach_cover!(cover_path)
       unless @cover_image
         # load cover image
-        if ['.jpg', '.jpeg', '.png', '.gif'].include?(File.extname(cover_path).downcase)
+        if ['.jpg', '.jpeg'].include?(File.extname(cover_path).downcase)
           @cover_image = Utils.load_file_content(cover_path)
         end
       end
@@ -403,6 +411,16 @@ Examples:
       Mp3Tag::set_encoding("UTF-8")
       super(default_ascii_encoding)
     end
+    
+    def info(paths)
+      paths.each do |path|
+        get_songs(path).each do |song|
+          puts song.to_s(@ascii_encoding)
+        end
+      end
+    end
+
+    
   end
   
 end
