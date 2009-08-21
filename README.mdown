@@ -1,0 +1,27 @@
+# mp3-tag
+
+Convert Chinese Mp3 ID3tag to ID3tag V2 / Unicode
+
+## Features:
+
+- Convert Chinese (simplified Chinese - GBK / tranditional Chinese - BIG5) into Unicode format
+- Attach cover art to mp3 files (image stored locally or remotely)
+- Create ID3tags based on filename (Still working on...)
+- Provide command line interface (finished) & web interface powered by Sinatra for remote management
+
+## Usage:
+
+### Command line
+
+    Usage: mp3tag <info / conv / cover> [-big5] <file.mp3 / dir> [<cover_image>]
+
+    Examples:
+    mp3tag info test.mp3
+    mp3tag conv -big5 ~/music/
+    mp3tag cover test.mp3 http://test.com/123.jpg
+    mp3tag fname test.mp3
+
+### Web
+
+    $ ruby web.rb 
+    == Sinatra/0.9.4 has taken the stage on 4567 for development with backup from Mongrel
