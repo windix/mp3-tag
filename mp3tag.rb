@@ -5,7 +5,7 @@ require 'id3lib'
 require 'iconv'
 require 'open-uri'
 require 'rchardet'
-require 'rtranslate'
+require 'google_translate'
 
 module Mp3Tag
   RESERVED_IDS = [ :TIT2, :TPE1, :TALB, :TYER, :TRCK, :APIC ]
@@ -82,7 +82,8 @@ module Mp3Tag
       @@translate_cache ||= {}
       return @@translate_cache[s] if (@@translate_cache.has_key?(s))
 
-      result = Translate.t(s, "CHINESE_TRADITIONAL", "CHINESE_SIMPLIFIED")
+      t = Google::Translator.new
+      result = t.translate(:"zh-TW", :"zh-CN", s)
       @@translate_cache[s] = result
       return result
     end
@@ -93,7 +94,9 @@ module Mp3Tag
     attr_reader :id, :encoding
 
     def initialize(id, text, encoding)
-      @id, @text, @encoding = id, text.strip, encoding
+      text.strip! if text
+      
+      @id, @text, @encoding = id, text, encoding
       @tag_name = nil
     end
 

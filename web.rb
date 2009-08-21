@@ -22,7 +22,7 @@ get '/browse/*' do |f|
   erb :index
 end
 
-get '/info/*' do |f|
+get %r{/info/(.*)} do |f|
   @path = f
   @up_level_dir = File.expand_path(File.join(f, ".."))
   
